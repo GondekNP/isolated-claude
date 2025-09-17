@@ -1,0 +1,120 @@
+# `icc` - Isolated Claude Code
+
+Run Claude Code with complete filesystem isolation using Docker. Claude Code can only access the directories you explicitly grant.
+
+## Why?
+
+Claude Code is powerful but requires broad system access. `icc` solves this by:
+- **Restricting filesystem access** to only your specified project directory
+- **Running in a container** to prevent system-level changes
+- **Dropping privileges** to minimize potential security impact
+
+### How it Works
+
+1. **Docker Container**: Runs Claude Code inside an isolated Ubuntu container
+2. **Bind Mount**: Only your specified directory is mounted into the container
+3. **User Isolation**: Runs as non-root user with minimal capabilities
+4. **Network Access**: Claude Code can still reach Anthropic's API
+5. **No System Access**: Cannot access your home directory, SSH keys, or system files - just what is within the target directory
+
+NOTE: If you have sensitive credentials within the target directory, be cautious, as Claude Code will have access to them! 
+
+### What each Docker flag does:
+
+```
+-it: Interactive terminal - allows you to interact with Claude Code
+--rm: Automatically removes the container when it exits (no leftover containers)
+--name claude-code-isolated: Names the container for easy identification
+-v "$TARGET_DIR:/workspace": The key security feature - mounts ONLY your specified directory into the container. Claude Code cannot access anything outside this directory
+-e ANTHROPIC_API_KEY: Passes your API key (if set) to the container
+--security-opt no-new-privileges:true: Prevents processes from gaining additional privileges via setuid/setgid binaries
+--cap-drop=ALL: Removes ALL Linux capabilities from the container (starts with zero permissions)
+--cap-add=CHOWN,DAC_OVERRIDE,SETUID,SETGID: Adds back only the minimum capabilities needed:
+
+CHOWN: Change file ownership (needed for npm/file operations)
+DAC_OVERRIDE: Bypass file permission checks (needed for accessing mounted files)
+SETUID/SETGID: Switch user/group IDs (needed for the non-root user setup)
+```
+
+## Requirements
+
+- Docker (Docker Desktop, Docker Engine, Colima, etc.)
+- Bash (or a compatible shell)
+- Git (for installation / cloning, though not strictly required - you can download the files manually)
+
+## Installation
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/yourusername/icc.git
+cd icc
+```
+
+### 2. Run setup
+
+```bash
+./setup.sh
+```
+
+### 3. Add to PATH (optional)
+
+Add this line to your `~/.bashrc` or `~/.zshrc`:
+
+```bash
+export PATH="/path/to/icc:$PATH"
+```
+
+Then reload:
+
+```bash
+source ~/.bashrc  # or source ~/.zshrc, depending on your shell
+```
+
+This is optional; you can always run `./icc` from the cloned directory, with a relative or absolute path to your target directory.
+
+### 4. Set your Anthropic API key (optional)
+
+```bash
+export ANTHROPIC_API_KEY=your_anthropic_api_key_here
+```
+
+Without an API key, `icc` will prompt for OAuth authentication. This may be preferable for those who prefer short-lived tokens or don't want to store a key in their environment.
+
+## Usage
+
+### Basic usage (current directory)
+
+```bash
+cd ~/my-project
+icc
+```
+
+### Specify a directory
+
+```bash
+icc /path/to/project
+```
+
+## Updating
+
+```bash
+cd /path/to/isolated-claude
+git pull
+./setup.sh  # Rebuild image with updates
+```
+
+## Uninstalling
+
+```bash
+# Remove Docker image
+docker rmi claude-isolated
+docker system prune -f  # Optional: clean up unused Docker resources
+
+# Remove from PATH (edit ~/.bashrc or ~/.zshrc)
+nano ~/.bashrc  # or ~/.zshrc
+# Remove the line: export PATH="/path/to/icc:$PATH"
+
+# Delete the cloned repository
+rm -rf /path/to/isolated-claude
+```
