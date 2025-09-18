@@ -1,4 +1,4 @@
-# `icc` - Isolated Claude Code
+# icc - Isolated Claude Code
 
 Run Claude Code with complete filesystem isolation using Docker. Claude Code can only access the directories you explicitly grant.
 
