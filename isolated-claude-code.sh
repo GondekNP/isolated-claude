@@ -19,7 +19,7 @@ if [ ! -d "$TARGET_DIR" ]; then
 fi
 
 # Confirm with user
-echo "⚠️ You're about to give claude-code access to the '$TARGET_DIR' directory."
+echo "⚠️  You're about to give claude-code access to the '$TARGET_DIR' directory."
 read -p "Proceed? (y/n): " confirm
 if [[ ! "$confirm" =~ ^[Yy] ]]; then
     echo "Cancelled."
@@ -55,5 +55,8 @@ docker run -it --rm \
     -e ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}" \
     --security-opt no-new-privileges:true \
     --cap-drop=ALL \
-    --cap-add=CHOWN,DAC_OVERRIDE,SETUID,SETGID \
+    --cap-add=CHOWN \
+    --cap-add=DAC_OVERRIDE \
+    --cap-add=SETUID \
+    --cap-add=SETGID \
     claude-isolated "$@"
