@@ -37,20 +37,43 @@ echo "🔒 Running Isolated Claude Code"
 echo "📁 Access restricted to: $TARGET_DIR"
 echo ""
 
-# Run container with isolation - 
+# Generate unique container name based on directory name and path hash
+# Extract the folder name and create a short hash for uniqueness
+FOLDER_NAME=$(basename "$TARGET_DIR")
+# Sanitize folder name for Docker (replace spaces and special chars with dash)
+SAFE_FOLDER_NAME=$(echo "$FOLDER_NAME" | sed 's/[^a-zA-Z0-9_.-]/-/g' | tr '[:upper:]' '[:lower:]')
+
+# Create a short hash of the full path for uniqueness
+if command -v md5sum &> /dev/null; then
+    DIR_HASH=$(echo -n "$TARGET_DIR" | md5sum | cut -c1-6)
+elif command -v md5 &> /dev/null; then
+    DIR_HASH=$(echo -n "$TARGET_DIR" | md5 -q | cut -c1-6)
+else
+    # Fallback: use timestamp if no md5 available
+    DIR_HASH="$(date +%s)"
+fi
+
+CONTAINER_NAME="claude-code-${SAFE_FOLDER_NAME}-${DIR_HASH}"
+echo "🏷️  Container name: $CONTAINER_NAME"
+
+# Update Claude Code to latest version
+echo "🔄 Updating Claude Code to latest version..."
+docker run --rm claude-isolated npm i -g @anthropic-ai/claude-code
+
+# Run container with isolation -
 # -it: interactive terminal
 # --rm: remove container after exit
-# --name: container name
+# --name: container name (now unique per directory with meaningful name)
 # -v: mount target directory to /workspace in container
 # -e: pass through ANTHROPIC_API_KEY if set
 # --security-opt no-new-privileges:true: prevent privilege escalation
 # --cap-drop=ALL: drop all capabilities
 # --cap-add=CHOWN,DAC_OVERRIDE,SETUID,SETGID: add only necessary capabilities
 # claude-isolated: use the built image
-# "$@": pass through any additional arguments to claude-code 
+# "$@": pass through any additional arguments to claude-code
 
 docker run -it --rm \
-    --name claude-code-isolated \
+    --name "$CONTAINER_NAME" \
     -v "$TARGET_DIR:/workspace" \
     -e ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}" \
     --security-opt no-new-privileges:true \
