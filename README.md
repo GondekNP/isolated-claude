@@ -8,6 +8,7 @@ Claude Code is powerful but requires broad system access. `icc` solves this by:
 - **Restricting filesystem access** to only your specified project directory
 - **Running in a container** to prevent system-level changes
 - **Dropping privileges** to minimize potential security impact
+- **Persistent workspaces** so you can resume conversations across sessions
 
 ### How it Works
 
@@ -16,6 +17,8 @@ Claude Code is powerful but requires broad system access. `icc` solves this by:
 3. **User Isolation**: Runs as non-root user with minimal capabilities
 4. **Network Access**: Claude Code can still reach Anthropic's API
 5. **No System Access**: Cannot access your home directory, SSH keys, or system files - just what is within the target directory
+6. **Container Persistence**: Containers are reused across sessions, preserving conversation history
+7. **In-place Updates**: Claude Code updates via `docker commit` without losing workspace state
 
 NOTE: If you have sensitive credentials within the target directory, be cautious, as Claude Code will have access to them! 
 
@@ -23,8 +26,7 @@ NOTE: If you have sensitive credentials within the target directory, be cautious
 
 ```
 -it: Interactive terminal - allows you to interact with Claude Code
---rm: Automatically removes the container when it exits (no leftover containers)
---name claude-code-isolated: Names the container for easy identification
+--name: Names the container for easy identification (unique per directory)
 -v "$TARGET_DIR:/workspace": The key security feature - mounts ONLY your specified directory into the container. Claude Code cannot access anything outside this directory
 -e ANTHROPIC_API_KEY: Passes your API key (if set) to the container
 --security-opt no-new-privileges:true: Prevents processes from gaining additional privileges via setuid/setgid binaries
@@ -96,12 +98,57 @@ icc
 icc /path/to/project
 ```
 
-## Updating
+### Container Persistence
+
+Containers are now persistent by default. When you run `icc` on the same directory:
+
+- **First time**: Creates a new container
+- **Subsequent runs**: Reuses the existing container, preserving your conversation history and any changes
+
+This means you can exit Claude Code and return later to continue your conversation exactly where you left off.
+
+### Available Flags
+
+#### `--fresh`
+Force create a new container, removing any existing one for that directory:
 
 ```bash
-cd /path/to/isolated-claude
+icc --fresh /path/to/project
+```
+
+Use this when you want to start completely fresh, discarding any previous conversation history.
+
+#### `--update`
+Update Claude Code to the latest version across all containers:
+
+```bash
+icc --update
+```
+
+This updates the base image that all containers use. The update process:
+1. Creates a temporary container
+2. Runs `npm update -g @anthropic-ai/claude-code` inside it
+3. Commits the updated container as the new base image
+4. Removes the temporary container
+
+**Note**: Existing containers will use the updated version the next time they're restarted.
+
+## Updating
+
+### Update Claude Code
+
+```bash
+icc --update
+```
+
+This updates Claude Code to the latest version for all containers.
+
+### Update icc itself
+
+```bash
+cd /path/to/icc
 git pull
-./setup.sh  # Rebuild image with updates
+./setup.sh  # Rebuild base image if needed, uses --no-cache to ensure latest packages (will be slow)
 ```
 
 ## Uninstalling

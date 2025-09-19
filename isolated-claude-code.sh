@@ -4,12 +4,40 @@
 # Get the directory where this script is located (the git repo)
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Parse arguments - if first arg isn't a flag, treat it as directory
-if [ -z "$1" ] || [[ "$1" == -* ]]; then
+# Parse arguments
+UPDATE_MODE=false
+FRESH_MODE=false
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --update)
+            UPDATE_MODE=true
+            shift
+            ;;
+        --fresh)
+            FRESH_MODE=true
+            shift
+            ;;
+        -*)
+            # Keep other flags for claude-code
+            break
+            ;;
+        *)
+            # First non-flag argument is the directory
+            if [ -z "$TARGET_DIR" ]; then
+                TARGET_DIR=$(realpath "$1")
+                shift
+            else
+                # Rest are arguments for claude-code
+                break
+            fi
+            ;;
+    esac
+done
+
+# Default to current directory if no directory specified
+if [ -z "$TARGET_DIR" ]; then
     TARGET_DIR=$(pwd)
-else
-    TARGET_DIR=$(realpath "$1")
-    shift
 fi
 
 # Validate directory exists
@@ -56,26 +84,56 @@ fi
 CONTAINER_NAME="claude-code-${SAFE_FOLDER_NAME}-${DIR_HASH}"
 echo "🏷️  Container name: $CONTAINER_NAME"
 
-# Run container with isolation -
-# -it: interactive terminal
-# --rm: remove container after exit
-# --name: container name (now unique per directory with meaningful name)
-# -v: mount target directory to /workspace in container
-# -e: pass through ANTHROPIC_API_KEY if set
-# --security-opt no-new-privileges:true: prevent privilege escalation
-# --cap-drop=ALL: drop all capabilities
-# --cap-add=CHOWN,DAC_OVERRIDE,SETUID,SETGID: add only necessary capabilities
-# claude-isolated: use the built image
-# "$@": pass through any additional arguments to claude-code
+# Handle update mode
+if [ "$UPDATE_MODE" = true ]; then
+    echo "🔄 Updating Claude Code..."
 
-docker run -it --rm \
-    --name "$CONTAINER_NAME" \
-    -v "$TARGET_DIR:/workspace" \
-    -e ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}" \
-    --security-opt no-new-privileges:true \
-    --cap-drop=ALL \
-    --cap-add=CHOWN \
-    --cap-add=DAC_OVERRIDE \
-    --cap-add=SETUID \
-    --cap-add=SETGID \
-    claude-isolated "$@"
+    # Create temporary container to update
+    TEMP_CONTAINER="claude-update-temp-$$"
+    docker run -d --name "$TEMP_CONTAINER" claude-isolated sleep 300
+
+    # Run update inside container
+    docker exec "$TEMP_CONTAINER" npm update -g @anthropic-ai/claude-code
+
+    # Commit the updated container as new base image
+    docker commit "$TEMP_CONTAINER" claude-isolated
+
+    # Clean up temporary container
+    docker rm -f "$TEMP_CONTAINER"
+
+    echo "✅ Claude Code updated successfully!"
+    exit 0
+fi
+
+# Handle fresh mode - remove existing container if it exists
+if [ "$FRESH_MODE" = true ]; then
+    if docker ps -aq -f name="$CONTAINER_NAME" | grep -q .; then
+        echo "🗑️  Removing existing container for fresh start..."
+        docker rm -f "$CONTAINER_NAME"
+    fi
+fi
+
+# Check if container already exists
+if docker ps -q -f name="$CONTAINER_NAME" | grep -q .; then
+    # Container is running, attach to it
+    echo "📦 Attaching to running container..."
+    docker attach "$CONTAINER_NAME"
+elif docker ps -aq -f name="$CONTAINER_NAME" | grep -q .; then
+    # Container exists but is stopped, restart it
+    echo "🔄 Restarting existing container..."
+    docker start -ai "$CONTAINER_NAME"
+else
+    # Create new container (without --rm for persistence)
+    echo "🆕 Creating new container..."
+    docker run -it \
+        --name "$CONTAINER_NAME" \
+        -v "$TARGET_DIR:/workspace" \
+        -e ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}" \
+        --security-opt no-new-privileges:true \
+        --cap-drop=ALL \
+        --cap-add=CHOWN \
+        --cap-add=DAC_OVERRIDE \
+        --cap-add=SETUID \
+        --cap-add=SETGID \
+        claude-isolated "$@"
+fi
