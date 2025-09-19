@@ -56,10 +56,6 @@ fi
 CONTAINER_NAME="claude-code-${SAFE_FOLDER_NAME}-${DIR_HASH}"
 echo "🏷️  Container name: $CONTAINER_NAME"
 
-# Update Claude Code to latest version
-echo "🔄 Updating Claude Code to latest version..."
-docker run --rm claude-isolated npm i -g @anthropic-ai/claude-code
-
 # Run container with isolation -
 # -it: interactive terminal
 # --rm: remove container after exit
