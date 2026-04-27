@@ -1,19 +1,17 @@
 FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install essentials and Claude Code (without post-install scripts)
+# Install essentials
 RUN apt-get update && apt-get install -y \
-    curl git sudo ca-certificates 
-    
-# Install Node.js 18.x (LTS) from NodeSource
-RUN curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash - \
-    && apt-get install -y nodejs
-
-# Install Claude Code globally, disabling post-install scripts
-RUN npm config set ignore-scripts true \ 
-    && npm install -g @anthropic-ai/claude-code --no-optional \
+    curl git sudo ca-certificates \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Claude Code via the native installer (no Node.js / npm required)
+RUN curl -fsSL https://claude.ai/install.sh | bash
+
+# Make the native install location available on PATH
+ENV PATH="/root/.local/bin:${PATH}"
 
 # Set up workspace
 RUN mkdir -p /workspace

@@ -33,7 +33,7 @@ NOTE: If you have sensitive credentials within the target directory, be cautious
 --cap-drop=ALL: Removes ALL Linux capabilities from the container (starts with zero permissions)
 --cap-add=CHOWN,DAC_OVERRIDE,SETUID,SETGID: Adds back only the minimum capabilities needed:
 
-CHOWN: Change file ownership (needed for npm/file operations)
+CHOWN: Change file ownership (needed for file operations)
 DAC_OVERRIDE: Bypass file permission checks (needed for accessing mounted files)
 SETUID/SETGID: Switch user/group IDs (needed for the non-root user setup)
 ```
@@ -127,7 +127,7 @@ icc --update
 
 This updates the base image that all containers use. The update process:
 1. Creates a temporary container
-2. Runs `npm update -g @anthropic-ai/claude-code` inside it
+2. Runs `claude update` inside it (the native installer self-updates in place)
 3. Commits the updated container as the new base image
 4. Removes the temporary container
 

@@ -92,8 +92,8 @@ if [ "$UPDATE_MODE" = true ]; then
     TEMP_CONTAINER="claude-update-temp-$$"
     docker run -d --name "$TEMP_CONTAINER" claude-isolated sleep 300
 
-    # Run update inside container
-    docker exec "$TEMP_CONTAINER" npm update -g @anthropic-ai/claude-code
+    # Run update inside container (native installer self-updates via `claude update`)
+    docker exec "$TEMP_CONTAINER" claude update
 
     # Commit the updated container as new base image
     docker commit "$TEMP_CONTAINER" claude-isolated
