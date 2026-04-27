@@ -13,6 +13,10 @@ RUN curl -fsSL https://claude.ai/install.sh | bash
 # Make the native install location available on PATH
 ENV PATH="/root/.local/bin:${PATH}"
 
+# Disable Claude Code background auto-updates; updates are managed
+# explicitly via `icc --update`
+ENV DISABLE_AUTOUPDATER=1
+
 # Set up workspace
 RUN mkdir -p /workspace
 
